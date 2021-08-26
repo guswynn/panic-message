@@ -14,7 +14,7 @@
 //!     panic!("gus");
 //! }).unwrap_err();
 //!
-//! let msg = panic_message::panic_message(&*payload);
+//! let msg = panic_message::panic_message(&payload);
 //! assert_eq!("gus", msg);
 //! ```
 //! Non-string payload:
@@ -25,7 +25,7 @@
 //!     std::panic::panic_any(1);
 //! }).unwrap_err();
 //!
-//! let msg = panic_message::panic_message(&*payload);
+//! let msg = panic_message::panic_message(&payload);
 //! assert_eq!("Box<dyn Any>", msg);
 //! ```
 //!
@@ -39,7 +39,7 @@
 //!     panic!("gus");
 //! }).unwrap_err();
 //!
-//! let msg = panic_message::get_panic_message(&*payload);
+//! let msg = panic_message::get_panic_message(&payload);
 //! assert_eq!(Some("gus"), msg);
 //! ```
 //! Non-string payload:
@@ -50,35 +50,22 @@
 //!     std::panic::panic_any(1);
 //! }).unwrap_err();
 //!
-//! let msg = panic_message::get_panic_message(&*payload);
+//! let msg = panic_message::get_panic_message(&payload);
 //! assert_eq!(None, msg);
 //! ```
 //!
 //!
 //! # Note
-//! This library only requires a rererence to the payload inside the Box. However,
-//! `Box<dyn Any>` can ALSO be coerced to a `&dyn Any`. To avoid misuse, this library will attempte
-//! to downcast values passed in a second time to try to get to the real payload.
-//!
-//! ```
-//! use std::panic::catch_unwind;
-//!
-//! let payload = catch_unwind(|| {
-//!     panic!("gus");
-//! }).unwrap_err();
-//!
-//! // Notice the `&*` is deferencing the Box to get at the payload inside...
-//! let msg = panic_message::panic_message(&*payload);
-//! assert_eq!("gus", msg);
-//! // ... but it works even if we pass a `&Box<dyn Any + Send + 'static>`
-//! let msg = panic_message::panic_message(&payload);
-//! assert_eq!("gus", msg);
+//! This library takes in `&Box<dyn Any + Send + 'static>`. This is to make it clear that its
+//! borrowing from a full panic payload. This is to avoid misuse from:
+//! - Passing some other `&dyn Any` value
+//! - Coercion issues from `Box<dyn Any` to a `&dyn Any` that represents the `Box` itself
 //!
 use std::any::Any;
 
 /// Produce a `&str` message from a panic payload, with a default message.
 /// See [module docs][crate] for usage.
-pub fn panic_message<'payload>(payload: &'payload (dyn Any + Send + 'static)) -> &'payload str {
+pub fn panic_message(payload: &Box<dyn Any + Send>) -> &str {
     get_panic_message(payload).unwrap_or({
         // Copy what rustc does in the default panic handler
         "Box<dyn Any>"
@@ -87,18 +74,11 @@ pub fn panic_message<'payload>(payload: &'payload (dyn Any + Send + 'static)) ->
 
 /// Attempt to produce a `&str` message from a panic payload.
 /// See [module docs][crate] for usage.
-pub fn get_panic_message<'payload>(
-    payload: &'payload (dyn Any + Send + 'static),
-) -> Option<&'payload str> {
-    let payload = if let Some(payload) = payload.downcast_ref::<Box<dyn Any + Send + 'static>>() {
-        payload.as_ref()
-    } else {
-        payload
-    };
+pub fn get_panic_message(payload: &Box<dyn Any + Send>) -> Option<&str> {
     // taken from: https://github.com/rust-lang/rust/blob/4b9f4b221b92193c7e95b1beb502c6eb32c3b613/library/std/src/panicking.rs#L194-L200
-    match payload.downcast_ref::<&'static str>() {
+    match payload.as_ref().downcast_ref::<&'static str>() {
         Some(msg) => Some(*msg),
-        None => match payload.downcast_ref::<String>() {
+        None => match payload.as_ref().downcast_ref::<String>() {
             Some(msg) => Some(msg.as_str()),
             // Copy what rustc does in the default panic handler
             None => None,
@@ -109,29 +89,12 @@ pub fn get_panic_message<'payload>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::any::Any;
     use std::panic::catch_unwind;
 
-    fn payload() -> Box<dyn Any + Send + 'static> {
-        catch_unwind(|| panic!("gus")).unwrap_err()
-    }
-
     #[test]
-    fn r#ref() {
-        let payload = payload();
+    fn basic() {
+        let payload = catch_unwind(|| panic!("gus")).unwrap_err();
 
-        // Avoid coercing the `Box<dyn Any>` into a `&dyn Any`, instead find the `&dyn Any` already
-        // inside
-        let msg = panic_message(&*payload);
-
-        assert_eq!("gus", msg);
-    }
-
-    #[test]
-    fn r#box() {
-        let payload = payload();
-
-        // Make sure we dual-downcast
         let msg = panic_message(&payload);
 
         assert_eq!("gus", msg);
@@ -141,7 +104,7 @@ mod tests {
     fn string() {
         let payload = catch_unwind(|| std::panic::panic_any("gus".to_string())).unwrap_err();
 
-        let msg = panic_message(&*payload);
+        let msg = panic_message(&payload);
 
         assert_eq!("gus", msg);
     }
@@ -155,7 +118,7 @@ mod tests {
         })
         .unwrap_err();
 
-        let msg = panic_message(&*payload);
+        let msg = panic_message(&payload);
 
         assert_eq!("gus", msg);
     }
@@ -167,7 +130,7 @@ mod tests {
         })
         .unwrap_err();
 
-        let msg = panic_message(&*payload);
+        let msg = panic_message(&payload);
 
         assert_eq!("Box<dyn Any>", msg);
     }
