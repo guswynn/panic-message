@@ -7,4 +7,6 @@ description = "Get a panic message from a panic payload"
 documentation = "https://docs.rs/panic-message"
 repository = "https://github.com/guswynn/panic-message"
 
+license = "MIT OR Apache-2.0"
+
 [dependencies]
