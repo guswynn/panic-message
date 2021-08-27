@@ -1,6 +1,6 @@
 [package]
 name = "panic-message"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2018"
 authors = ["Gus Wynn <guswynn@gmail.com>"]
 description = "Get a panic message from a panic payload"
