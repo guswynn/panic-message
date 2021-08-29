@@ -86,8 +86,7 @@
 //! can be coerced into `&dyn Any`, which would make a method that takes `&dyn Any` possible
 //! to misuse with a payload from [`std::panic::catch_unwind`].
 //!
-use std::any::Any;
-use std::panic::PanicInfo;
+use std::{any::Any, panic::PanicInfo};
 
 /// Attempt to produce a `&str` message (with a default)
 /// from a [`std::panic::catch_unwind`] payload.
