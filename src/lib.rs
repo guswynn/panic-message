@@ -126,7 +126,7 @@ mod imp {
     use super::*;
     /// Attempt to produce a message from a borrowed `dyn Any`. Note that care must be taken
     /// when calling this to avoid a `Box<dyn Any>` being coerced to a `dyn Any` itself.
-    pub(super) fn get_panic_message(payload: &(dyn Any + Send)) -> Option<&str> {
+    pub(super) fn get_panic_message(payload: &dyn Any) -> Option<&str> {
         // taken from: https://github.com/rust-lang/rust/blob/4b9f4b221b92193c7e95b1beb502c6eb32c3b613/library/std/src/panicking.rs#L194-L200
         match payload.downcast_ref::<&'static str>() {
             Some(msg) => Some(*msg),
